@@ -48,7 +48,6 @@ struct acpi_power_dependent_device {
 struct acpi_power_resource {
 	struct acpi_device device;
 	struct list_head list_node;
-	char *name;
 	u32 system_level;
 	u32 order;
 	unsigned int ref_count;
@@ -68,6 +67,11 @@ static DEFINE_MUTEX(power_resource_list_lock);
 /* --------------------------------------------------------------------------
                              Power Resource Management
    -------------------------------------------------------------------------- */
+
+static inline const char *resource_dev_name(struct acpi_power_resource *pr)
+{
+	return dev_name(&pr->device.dev);
+}
 
 static inline
 struct acpi_power_resource *to_power_resource(struct acpi_device *device)
@@ -251,7 +255,8 @@ acpi_power_resource_add_dependent(struct acpi_power_resource *resource,
 
 	dep->dev = dev;
 	list_add_tail(&dep->node, &resource->dependents);
-	dev_dbg(dev, "added power dependency to [%s]\n", resource->name);
+	dev_dbg(dev, "added power dependency to [%s]\n",
+		resource_dev_name(resource));
 
 unlock:
 	mutex_unlock(&resource->resource_lock);
@@ -270,7 +275,7 @@ acpi_power_resource_remove_dependent(struct acpi_power_resource *resource,
 			list_del(&dep->node);
 			kfree(dep);
 			dev_dbg(dev, "removed power dependency to [%s]\n",
-				resource->name);
+				resource_dev_name(resource));
 			break;
 		}
 	}
@@ -363,7 +368,7 @@ static int __acpi_power_on(struct acpi_power_resource *resource)
 
 	list_for_each_entry(dep, &resource->dependents, node) {
 		dev_dbg(dep->dev, "runtime resuming because [%s] turned on\n",
-			resource->name);
+			resource_dev_name(resource));
 		pm_request_resume(dep->dev);
 	}
 
@@ -930,7 +935,6 @@ int acpi_add_power_resource(acpi_handle handle)
 	mutex_init(&resource->resource_lock);
 	INIT_LIST_HEAD(&resource->list_node);
 	INIT_LIST_HEAD(&resource->dependents);
-	resource->name = device->pnp.bus_id;
 	strcpy(acpi_device_name(device), ACPI_POWER_DEVICE_NAME);
 	strcpy(acpi_device_class(device), ACPI_POWER_CLASS);
 	device->power.state = ACPI_STATE_UNKNOWN;
