@@ -9,7 +9,7 @@
 #ifndef _ACPI_INTERNAL_H_
 #define _ACPI_INTERNAL_H_
 
-#define PREFIX "ACPI: "
+#include <linux/idr.h>
 
 int early_acpi_osi_init(void);
 int acpi_osi_init(void);
@@ -86,7 +86,7 @@ void acpi_device_hotplug(struct acpi_device *adev, u32 src);
 bool acpi_scan_is_offline(struct acpi_device *adev, bool uevent);
 
 acpi_status acpi_sysfs_table_handler(u32 event, void *table, void *context);
-void acpi_scan_table_handler(u32 event, void *table, void *context);
+void acpi_scan_table_notify(void);
 
 /* --------------------------------------------------------------------------
                      Device Node Initialization / Removal
@@ -96,17 +96,18 @@ void acpi_scan_table_handler(u32 event, void *table, void *context);
 
 extern struct list_head acpi_bus_id_list;
 
+#define ACPI_MAX_DEVICE_INSTANCES	4096
+
 struct acpi_device_bus_id {
 	const char *bus_id;
-	unsigned int instance_no;
+	struct ida instance_ida;
 	struct list_head node;
 };
 
 int acpi_device_add(struct acpi_device *device,
 		    void (*release)(struct device *));
 void acpi_init_device_object(struct acpi_device *device, acpi_handle handle,
-			     int type, unsigned long long sta,
-			     struct acpi_device_info *info);
+			     int type);
 int acpi_device_setup_files(struct acpi_device *dev);
 void acpi_device_remove_files(struct acpi_device *dev);
 void acpi_device_add_finalize(struct acpi_device *device);
@@ -231,6 +232,15 @@ static inline int suspend_nvs_alloc(void) { return 0; }
 static inline void suspend_nvs_free(void) {}
 static inline int suspend_nvs_save(void) { return 0; }
 static inline void suspend_nvs_restore(void) {}
+#endif
+
+#ifdef CONFIG_X86
+bool force_storage_d3(void);
+#else
+static inline bool force_storage_d3(void)
+{
+	return false;
+}
 #endif
 
 /*--------------------------------------------------------------------------
